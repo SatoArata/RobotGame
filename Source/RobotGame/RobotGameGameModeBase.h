@@ -13,5 +13,7 @@ UCLASS()
 class ROBOTGAME_API ARobotGameGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
+
+	virtual void StartPlay() override;
 	
 };
