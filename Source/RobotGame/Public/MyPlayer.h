@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "MyPlayer.generated.h"
 
 UCLASS()
@@ -19,6 +22,7 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -26,4 +30,31 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+
+protected:
+	UFUNCTION()
+		void MoveForward(float Value);
+
+	// Handles input for moving right and left.
+	UFUNCTION()
+		void MoveRight(float Value);
+
+	UFUNCTION()
+		void FloatUp(float Value);
+
+	UFUNCTION()
+		void CameraTurn(float Val);
+
+	UFUNCTION()
+		void CameraLookUp(float Val);
+
+
+	UPROPERTY(EditAnywhere)
+		USpringArmComponent* m_SpringArmComp;
+
+	UPROPERTY(VisibleAnywhere)
+		UCameraComponent* m_CameraComponent;
+
+
+	void LockAngleYaw();
 };
