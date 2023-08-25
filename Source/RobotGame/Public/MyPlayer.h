@@ -7,6 +7,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "MyPlayer.generated.h"
 
 UCLASS()
@@ -35,9 +36,11 @@ protected:
 	UFUNCTION()
 		void MoveForward(float Value);
 
+	void MoveRight();
+
 	// Handles input for moving right and left.
 	UFUNCTION()
-		void MoveRight(float Value);
+		void Tilt(float Value);
 
 	UFUNCTION()
 		void FloatUp(float Value);
@@ -57,4 +60,6 @@ protected:
 
 
 	void LockAngleYaw();
+
+	void SetAngleYaw(bool isPositive);
 };

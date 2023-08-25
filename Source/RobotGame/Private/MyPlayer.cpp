@@ -3,6 +3,11 @@
 
 #include "MyPlayer.h"
 
+namespace
+{
+	static const int MAX_ROLL = 30;
+}
+
 // Sets default values
 AMyPlayer::AMyPlayer()
 {
@@ -47,8 +52,9 @@ void AMyPlayer::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	MoveForward(1.f);
+	MoveRight();
 
-	LockAngleYaw();
+	//LockAngleYaw();
 }
 
 // Called to bind functionality to input
@@ -57,7 +63,7 @@ void AMyPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	//PlayerInputComponent->BindAxis("MoveForward", this, &AMyPlayer::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &AMyPlayer::MoveRight);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AMyPlayer::Tilt);
 	PlayerInputComponent->BindAxis("FloatUp", this, &AMyPlayer::FloatUp);
 
 	//PlayerInputComponent->BindAxis("Turn", this, &AMyPlayer::CameraTurn);
@@ -68,41 +74,52 @@ void AMyPlayer::MoveForward(float Value)
 {
 	if (Value == 0.f)return;
 
-	FVector direction = FRotationMatrix(m_CameraComponent->GetComponentRotation()).GetScaledAxis(EAxis::X);
+	FVector direction = FRotationMatrix(GetActorRotation()).GetScaledAxis(EAxis::X);
 	direction.Z = 0.0f; // z軸成分を0に設定
 	AddMovementInput(direction.GetSafeNormal(), Value);
 	//UE_LOG(LogTemp, Warning, TEXT("\n%f"), direction.X);
 }
 
-void AMyPlayer::MoveRight(float Value)
+void AMyPlayer::MoveRight()
 {
+	static const float MAX_VELOCITY_Y = 1000.f;
+	float roll = GetMesh()->GetRelativeRotation().Roll;
+	float turnValue = roll / MAX_ROLL;
+	
+	//UE_LOG(LogTemp, Warning, TEXT("\n%f"), GetCharacterMovement()->Velocity.Y);
+	
 
-	static const int MAX_ROLL = 50;
+	if (roll < 1.f && roll > -1.f)
+	{	
+		return;
+	}
+
+	FVector direction = FRotationMatrix(GetActorRotation()).GetScaledAxis(EAxis::Y);
+	direction.Z = 0.0f; // z軸成分を0に設定
+	AddMovementInput(direction.GetSafeNormal(), turnValue);
+}
+
+void AMyPlayer::Tilt(float Value)
+{
 	static const float RETURN_SPEED = 0.8f;
 	const float ROLL_SPEED = 0.5f * Value;
 
 
 	if (Value == 0.f)
 	{
-		if (GetMesh()->GetRelativeRotation().Roll > 0)
-		{
-			GetMesh()->AddRelativeRotation(FRotator(0, 0, -RETURN_SPEED));
-			FRotator rot = GetMesh()->GetRelativeRotation();
-			if (rot.Roll < 0)
-			{
-				GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, rot.Yaw, 0));
-			}
-		}
-		else if (GetMesh()->GetRelativeRotation().Roll < 0)
-		{
-			GetMesh()->AddRelativeRotation(FRotator(0, 0, RETURN_SPEED));
-			FRotator rot = GetMesh()->GetRelativeRotation();
-			if (rot.Roll > 0)
-			{
-				GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, rot.Yaw, 0));
-			}
-		}
+		float nowPitch = GetMesh()->GetRelativeRotation().Pitch;
+		FRotator TargetRotation = { nowPitch,0,0 };
 
+		// 現在の回転を取得
+		FRotator CurrentRotation = GetMesh()->GetRelativeRotation();
+
+		// 補間率を計算（DeltaTimeはフレーム時間）
+		static const float INTERP_SPEED = 2.f;
+		const float DELTA_TIME = GetWorld()->GetDeltaSeconds();
+
+		// 補間を行い、メッシュの回転を更新
+		FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DELTA_TIME, INTERP_SPEED);
+		GetMesh()->SetRelativeRotation(NewRotation);
 		return;
 	}
 
@@ -115,6 +132,7 @@ void AMyPlayer::MoveRight(float Value)
 		if (rot.Roll > MAX_ROLL)
 		{
 			GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, rot.Yaw, MAX_ROLL));
+			SetAngleYaw(true);
 		}
 	}
 	else
@@ -125,62 +143,59 @@ void AMyPlayer::MoveRight(float Value)
 		if (rot.Roll < -MAX_ROLL)
 		{
 			GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, rot.Yaw, -MAX_ROLL));
+			SetAngleYaw(false);
 		}
 	}
 
-
+	//UE_LOG(LogTemp, Warning, TEXT("\n%f"), GetMesh()->GetRelativeRotation().Yaw);
 }
 
 void AMyPlayer::FloatUp(float Value)
 {
-	static const int MAX_ROLL = 10;
-	static const float RETURN_SPEED = 0.5f;
-	const float ROLL_SPEED = 0.2f * Value;
+	static const int MAX_PITCH_VALUE = 10;
+	static const float RETURN_SPEED = 0.2f;
+	const float PITCH_SPEED = 0.1f * Value;
 
 
 	if (Value == 0.f)
 	{
-		if (GetMesh()->GetRelativeRotation().Pitch > 0)
-		{
-			GetMesh()->AddRelativeRotation(FRotator(-RETURN_SPEED, 0, 0));
-			FRotator rot = GetMesh()->GetRelativeRotation();
-			if (rot.Pitch < 0)
-			{
-				GetMesh()->SetRelativeRotation(FRotator(0, rot.Yaw, rot.Roll));
-			}
-		}
-		else if (GetMesh()->GetRelativeRotation().Pitch < 0)
-		{
-			GetMesh()->AddRelativeRotation(FRotator(RETURN_SPEED, 0, 0));
-			FRotator rot = GetMesh()->GetRelativeRotation();
-			if (rot.Pitch > 0)
-			{
-				GetMesh()->SetRelativeRotation(FRotator(0, rot.Yaw, rot.Roll));
-			}
-		}
+		float nowYaw = GetMesh()->GetRelativeRotation().Yaw;
+		float nowRoll = GetMesh()->GetRelativeRotation().Roll;
+		FRotator TargetRotation = { 0,nowYaw,nowRoll };
 
+		// 現在の回転を取得
+		FRotator CurrentRotation = GetMesh()->GetRelativeRotation();
+
+		// 補間率を計算（DeltaTimeはフレーム時間）
+		static const float INTERP_SPEED = 2.f;
+		const float DELTA_TIME = GetWorld()->GetDeltaSeconds();
+
+		// 補間を行い、メッシュの回転を更新
+		FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, DELTA_TIME, INTERP_SPEED);
+		GetMesh()->SetRelativeRotation(NewRotation);
+		
 		return;
 	}
 
 
 	if (Value > 0)
 	{
-		GetMesh()->AddRelativeRotation(FRotator(ROLL_SPEED, 0, 0));
+		GetMesh()->AddRelativeRotation(FRotator(PITCH_SPEED, 0, 0));
 
 		FRotator rot = GetMesh()->GetRelativeRotation();
-		if (rot.Pitch > MAX_ROLL)
+		if (rot.Pitch > MAX_PITCH_VALUE)
 		{
-			GetMesh()->SetRelativeRotation(FRotator(MAX_ROLL, rot.Yaw, rot.Roll));
+			GetMesh()->SetRelativeRotation(FRotator(MAX_PITCH_VALUE, rot.Yaw, rot.Roll));
 		}
 	}
 	else
 	{
-		GetMesh()->AddLocalRotation(FRotator(ROLL_SPEED, 0, 0));
+		GetMesh()->AddRelativeRotation(FRotator(PITCH_SPEED, 0, 0));
 
 		FRotator rot = GetMesh()->GetRelativeRotation();
-		if (rot.Pitch < -MAX_ROLL)
+		if (rot.Pitch < -MAX_PITCH_VALUE)
 		{
-			GetMesh()->SetRelativeRotation(FRotator(-MAX_ROLL, rot.Yaw, rot.Roll));
+			GetMesh()->SetRelativeRotation(FRotator(-MAX_PITCH_VALUE, rot.Yaw, rot.Roll));
 		}
 	}
 }
@@ -224,5 +239,35 @@ void AMyPlayer::LockAngleYaw()
 	{
 		GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, 0, rot.Roll));
 	}
+}
+
+void AMyPlayer::SetAngleYaw(bool isPositive)
+{
+	float YAW_SPEED = 0.1f;
+	float MAX_YAW = 15.f;
+	if (!isPositive)
+	{
+		YAW_SPEED *= -1;
+		MAX_YAW *= -1;
+	}
+
+	GetMesh()->AddRelativeRotation(FRotator(0, YAW_SPEED, 0));
+	FRotator rot = GetMesh()->GetRelativeRotation();
+		
+	if (isPositive)
+	{
+		if (rot.Yaw > MAX_YAW)
+		{
+			GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, MAX_YAW, rot.Roll));
+		}
+	}
+	else
+	{
+		if (rot.Yaw < MAX_YAW)
+		{
+			GetMesh()->SetRelativeRotation(FRotator(rot.Pitch, MAX_YAW, rot.Roll));
+		}
+	}
+
 }
 
